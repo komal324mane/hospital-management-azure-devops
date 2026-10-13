@@ -1,0 +1,7 @@
+# Copy this file to terraform.tfvars for local use, then set your Azure subscription ID.
+# Do not commit terraform.tfvars.
+subscription_id = "00000000-0000-0000-0000-000000000000"
+location        = "Central India"
+project_name    = "carepoint-demo"
+environment     = "dev"
+app_service_sku = "B1"

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CarePoint Hospital — Demo</title>
+  <style>
+    :root { color-scheme: light; --navy:#12304a; --teal:#147d83; --bg:#f3f7fa; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial,sans-serif; color:#203040; background:var(--bg); }
+    header { background:var(--navy); color:white; padding:24px max(20px, calc((100% - 1000px)/2)); }
+    header h1 { margin:0 0 6px; font-size:28px; }
+    header p { margin:0; opacity:.85; }
+    main { max-width:1000px; margin:26px auto; padding:0 18px 40px; }
+    .notice { background:#fff7df; border-left:4px solid #d79b00; padding:12px 14px; border-radius:6px; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:18px; }
+    section { background:white; padding:20px; border-radius:12px; box-shadow:0 3px 15px #17334a0d; }
+    h2 { margin-top:0; color:var(--navy); font-size:20px; }
+    label { display:block; font-weight:bold; margin:12px 0 6px; }
+    input, select { width:100%; padding:10px; border:1px solid #ccd7df; border-radius:7px; font:inherit; }
+    button { margin-top:16px; background:var(--teal); color:white; border:0; border-radius:7px; padding:11px 16px; font-weight:bold; cursor:pointer; }
+    li { margin:10px 0; }
+    .muted { color:#657887; font-size:13px; }
+    @media (max-width:700px) { .grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<header><h1>CarePoint Hospital</h1><p>Hospital Management System · DevOps portfolio demo</p></header>
+<main>
+  <p class="notice"><strong>Demo only:</strong> Do not enter real patient or medical information. Appointment data is held in memory and is not persistent or secure.</p>
+  {% if message %}<p role="status">{{ message }}</p>{% endif %}
+  <div class="grid">
+    <section>
+      <h2>Book a demo appointment</h2>
+      <form method="post" action="{{ url_for('book') }}">
+        <label for="patient">Demo patient name</label>
+        <input id="patient" name="patient" required maxlength="60" placeholder="e.g. Sample Patient">
+        <label for="department">Department</label>
+        <select id="department" name="department" required>
+          {% for d in departments %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+        </select>
+        <label for="doctor">Doctor</label>
+        <select id="doctor" name="doctor" required>
+          {% for d in doctors %}<option value="{{ d.name }}">{{ d.name }} — {{ d.department }}</option>{% endfor %}
+        </select>
+        <label for="date">Appointment date</label>
+        <input id="date" type="date" name="date" required min="{{ today }}">
+        <button type="submit">Book demo appointment</button>
+      </form>
+    </section>
+    <section>
+      <h2>Our doctors</h2>
+      <ul>{% for d in doctors %}<li><strong>{{ d.name }}</strong><br><span class="muted">{{ d.department }}</span></li>{% endfor %}</ul>
+      <h2>Demo appointments</h2>
+      {% if appointments %}
+        <ul>{% for a in appointments %}<li><strong>{{ a.patient }}</strong> — {{ a.date }}<br><span class="muted">{{ a.doctor }} · {{ a.department }}</span></li>{% endfor %}</ul>
+      {% else %}<p>No demo appointments yet.</p>{% endif %}
+    </section>
+  </div>
+  <p class="muted">CarePoint is a fictional hospital. This demo is not intended for clinical use.</p>
+</main>
+</body>
+</html>
