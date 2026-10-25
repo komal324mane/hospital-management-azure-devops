@@ -1,128 +1,126 @@
-# Hospital Management System — Azure + Terraform + GitHub Actions
+# Hospital Management Demo — Azure, Terraform & GitHub Actions
 
-A learning/portfolio project for an Azure DevOps Engineer. It contains:
-- A small demo hospital appointment web application (Flask; in-memory demo data only).
-- Terraform code to provision an Azure Resource Group, Linux App Service Plan, and Linux Web App.
-- GitHub Actions CI to test the app and validate Terraform automatically on pushes and pull requests.
+A learning project for an Azure DevOps portfolio. It combines a small Flask appointment demo, Terraform for Azure App Service infrastructure, and GitHub Actions CI for application tests and Terraform checks.
 
-**Learning demo only:** Do not enter real patient data or use this for real medical operations. Appointment data is held in memory and resets when the process restarts. This starter does not provision a database.
+> **Learning demo only:** CarePoint is fictional. Do not enter real patient or medical information or use this application for clinical operations. Appointment data is in memory, resets on restart, and is not persisted or protected by authentication.
 
-## Project structure
+## Architecture
 
-```text
-hospital-management-azure-devops/
-├── app/
-│   ├── app.py
-│   ├── requirements.txt
-│   ├── test_app.py
-│   └── templates/index.html
-├── terraform/
-│   ├── versions.tf
-│   ├── provider.tf
-│   ├── variables.tf
-│   ├── main.tf
-│   ├── outputs.tf
-│   └── terraform.tfvars.example
-└── .github/workflows/ci.yml
+```mermaid
+flowchart LR
+    Dev[Developer] --> PR[GitHub pull request]
+    PR --> CI[GitHub Actions]
+    CI --> Tests[Flask unit tests]
+    CI --> TF[Terraform fmt · init · validate]
+    Local[Local Azure CLI authentication] --> Plan[Terraform plan]
+    Plan -. optional manual action .-> Azure[Azure Resource Group<br/>App Service Plan · Linux Web App]
+    User[Browser] -. only after deployment .-> Azure
 ```
 
-## 1. Run the demo app locally (Windows / PowerShell)
+GitHub Actions runs tests and backend-free Terraform validation. It does **not** authenticate to Azure, apply Terraform, or deploy the application. No successful cloud deployment is claimed.
 
-From the project root:
+## Repository structure
+
+```text
+app/                       Flask demo, templates, requirements, unit tests
+terraform/                 AzureRM provider and App Service infrastructure
+.github/workflows/ci.yml   Application and Terraform CI
+```
+
+The demo stores appointments in process memory and has no database, authentication, authorization, CSRF protection, or clinical controls. It is not suitable for real patient data or production use.
+
+## Run locally (Windows PowerShell)
 
 ```powershell
-cd app
+Set-Location app
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python app.py
 ```
 
-Open http://127.0.0.1:5000. If PowerShell blocks activation, run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` in that terminal and activate again.
-
-Run tests:
+Open `http://127.0.0.1:5000`. Run unit tests from the `app` directory:
 
 ```powershell
 python -m unittest -v
 ```
 
-## 2. Validate Terraform locally
+The `/health` endpoint returns a simple health response for local learning and checks.
 
-From the project root:
+## Validate Terraform without Azure
+
+From the repository root:
 
 ```powershell
-cd terraform
-terraform fmt -recursive
+Set-Location terraform
+terraform fmt -check -recursive
 terraform init -backend=false
 terraform validate
 ```
 
-These commands do not create Azure resources.
+These commands do not create Azure resources. The CI workflow performs the same Terraform checks without a backend.
 
-## 3. Create a new GitHub repository and push this new project
+## Optional manual Azure infrastructure
 
-Create an empty repository named `hospital-management-azure-devops`. Keep it private while learning if unsure. Open PowerShell in the extracted project root:
+The Terraform configuration creates a resource group, Linux App Service Plan, and Linux Web App. This may incur charges. Review current Azure pricing, quotas, region availability, naming requirements, and the generated plan before applying.
 
-```powershell
-git init
-git branch -M main
-git add .
-git status
-git commit -m "Initial hospital management Terraform project"
-git remote add origin https://github.com/YOUR-USERNAME/hospital-management-azure-devops.git
-git push -u origin main
-```
+1. Sign in and verify the target subscription:
 
-Replace `YOUR-USERNAME`. Review `git status` before committing. Never commit `.tfstate`, credentials, real patient information, `.env`, or `terraform.tfvars`.
+   ```powershell
+   az login
+   az account show
+   az account set --subscription "<your-subscription-id>"
+   ```
 
-## 4. Automatic GitHub Actions pipeline
+2. From `terraform`, copy `terraform.tfvars.example` to the ignored `terraform.tfvars`. Enter only non-secret configuration values; use Azure CLI authentication rather than storing credentials.
+3. Initialize, create, and inspect a saved plan:
 
-`.github/workflows/ci.yml` runs on pushes to `main`, pull requests targeting `main`, and manual workflow dispatch. It:
-1. Runs Python unit tests.
-2. Checks Terraform formatting.
-3. Initializes Terraform without a backend.
-4. Validates Terraform configuration.
+   ```powershell
+   terraform init
+   terraform plan -out main.tfplan
+   terraform show main.tfplan
+   ```
 
-After pushing, open the repository → **Actions** to see the run. This workflow does not sign in to Azure or create cloud resources.
+4. Apply only after verifying the subscription, resources, names, and costs:
 
-## 5. Optional: provision Azure infrastructure (may incur charges)
+   ```powershell
+   terraform apply main.tfplan
+   ```
 
-First sign in:
+5. When finished, verify the resource group belongs exclusively to this learning project, then review and run:
 
-```powershell
-az login
-az account show
-```
+   ```powershell
+   terraform plan -destroy
+   terraform destroy
+   ```
 
-Copy `terraform.tfvars.example` to `terraform.tfvars` and set your subscription ID. `terraform.tfvars` is ignored by Git. From the `terraform` directory:
+Never delete resources based only on their names. Confirm they are managed by this project's Terraform state and are no longer needed.
 
-```powershell
-terraform init
-terraform plan -out main.tfplan
-terraform apply main.tfplan
-```
+## GitHub Actions and Azure authentication status
 
-Review the plan carefully. App Service resources can incur charges. To remove resources created by this project:
+`.github/workflows/ci.yml` runs on pushes and pull requests targeting `main`, and on manual dispatch. It installs Python dependencies, runs the Flask unit tests, checks Terraform formatting, initializes without a backend, and validates the configuration.
 
-```powershell
-terraform destroy
-```
+There is currently **no Azure service authentication, OIDC federated credential, infrastructure apply, or application deployment workflow**. Before adding deployment automation:
 
-Only destroy resources you know belong to this project and no longer need.
+- Configure a GitHub Actions OIDC identity in Microsoft Entra ID and a matching federated credential restricted to this repository and intended branch/environment.
+- Grant only the target-scope Azure roles required by the workflow; do not use a subscription-wide Owner role for convenience.
+- Configure a private remote Terraform backend with locking, least-privilege state access, and separate state keys for environments.
+- Protect production with GitHub Environment reviewers and required checks.
+- Keep deployment disabled until the identity, permissions, plan review, and rollback approach are tested.
+- Never store Azure client secrets, subscription credentials, state, or plan files in Git.
 
-### Azure authentication and deployment
+## Troubleshooting
 
-Local Terraform can use your Azure CLI login through AzureRM. GitHub Actions CI does not authenticate to Azure and does not deploy infrastructure. Before automated cloud deployment, configure Microsoft Entra workload identity federation (OIDC), a GitHub federated credential, and least-privilege Azure permissions. Add remote Terraform state and approval controls before enabling deployment. Never place client secrets in source code.
+- **`ModuleNotFoundError: flask`:** activate the project virtual environment and install `app/requirements.txt`.
+- **Terraform cannot select a subscription:** sign in with Azure CLI and verify `az account show`; set the intended subscription before initializing.
+- **Terraform provider/init errors:** confirm outbound access to the Terraform Registry and AzureRM provider requirements.
+- **Web App name already used:** the Azure name is globally unique; adjust the project naming input and review the plan.
+- **No Actions run:** confirm the branch is `main`, workflow file is `.github/workflows/ci.yml`, and GitHub Actions is enabled for the repository.
 
-## Suggested next enhancements
+## Next learning steps
 
-- Add Azure Storage remote backend for Terraform state and locking.
-- Add GitHub OIDC and a manual, approval-protected deployment workflow.
-- Deploy the Flask application to Azure App Service.
-- Add Azure SQL Database only after reviewing networking, secrets, backups, and cost.
-- Add Application Insights monitoring.
-- Add proper authentication, authorization, and security controls before any real-world use.
-
-## Interview explanation
-
-“I built a sample Hospital Management System as a DevOps portfolio project. Terraform defines the Azure infrastructure, while GitHub Actions automatically tests the Python application and validates Terraform on each push and pull request. CI does not deploy resources automatically, which avoids accidental cloud costs. The next phase is secure OIDC-based deployment and remote Terraform state.”
+- Add a separately reviewed Azure Blob remote-state configuration and environment-specific state.
+- Add OIDC only after creating and testing the scoped federated identity and approvals.
+- Add deployment only after defining an explicit application package/startup configuration and validation.
+- Study persistence, authentication, authorization, and privacy before extending the fictional demo; do not use real medical data.
+- Explore Azure Monitor/Application Insights and cost-aware diagnostic settings.
